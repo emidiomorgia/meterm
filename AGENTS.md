@@ -1,173 +1,138 @@
-# Agent Development Workflow
+<!-- BACKLOG.MD MCP GUIDELINES START -->
 
-This repository uses an issue-driven, spec-first workflow. Every implementation must be associated with one GitHub Issue and one dedicated feature branch. Issues move through the following states: `Backlog`, `Ready`, `In Progress`, and `In Review`.
+<CRITICAL_INSTRUCTION>
 
-## Operating rules
+## BACKLOG WORKFLOW INSTRUCTIONS
 
-- Work on one issue at a time.
-- Do not modify `main` directly.
-- Do not create a branch or write implementation code while refining a `Backlog` issue or before the issue is explicitly approved by moving it to `Ready`.
-- Do not merge pull requests.
-- Do not close issues manually unless explicitly requested; include `Closes #<issue-number>` in the changelog section of the pull request body.
-- Keep the implementation limited to the scope described in the issue.
+This project uses Backlog.md MCP for all task and project management activities.
 
-## Read the workflow state from GitHub Projects
+### Mandatory Workflow Rules
 
-The workflow state is the `Status` field on the issue's GitHub Project item. Do not infer it from the issue's open/closed state, labels, comments, or the issue body. In particular, `Ready` is the valid value; misspellings such as `Redy` are not valid states.
+1. Tasks in status `To Do` are created and maintained by humans only.
+   - The agent MUST NEVER start working on tasks in `To Do` status.
+   - `To Do` tasks are considered not yet approved for implementation.
 
-Before creating a branch or editing files for an issue:
+2. The agent MUST only work on tasks in status `In Progress`.
+   - A task in `In Progress` means the human has explicitly approved it for implementation.
+   - Tasks in `In Progress` may represent:
+     - newly approved work
+     - partially completed work
+     - tasks returned after human review with requested modifications
 
-1. Resolve the repository owner and name from the `origin` remote, then fetch the complete issue with `gh issue view <number> --json number,state,title,body,comments,url`.
-2. Discover the projects owned by the repository owner and inspect their items. The following commands are the reference procedure; `jq` is required:
+3. Tasks worked on by the agent MUST always use a dedicated feature branch named after the task identifier or task name.
 
-   ```bash
-   OWNER="$(git remote get-url origin | sed -E 's#(git@|https://)github.com[:/]([^/]+)/.*#\2#')"
-   REPOSITORY="${OWNER}/$(git remote get-url origin | sed -E 's#(\.git|/)$##; s#.*/##')"
-   ISSUE_NUMBER=12
+4. The agent MUST mark work as completed ONLY when:
+   - all Acceptance Criteria are fully satisfied
+   - all Definition of Done requirements are fully verified
 
-   MATCHES="$(
-     for PROJECT_NUMBER in $(gh project list --owner "$OWNER" --format json --limit 100 \
-       | jq -r '.projects[].number'); do
-       gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" \
-         --format json --limit 1000 \
-         | jq -c --arg repository "$REPOSITORY" --argjson issue "$ISSUE_NUMBER" \
-           --arg project "$PROJECT_NUMBER" \
-           '.items[]
-            | select(.content.repository == $repository and .content.number == $issue)
-            | {project_number: ($project | tonumber), item_id: .id, status: .status}'
-     done
-   )"
-   MATCH_COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d ' ')"
-   test "$MATCH_COUNT" -eq 1 || { echo "Expected exactly one matching project item, found $MATCH_COUNT" >&2; exit 1; }
-   PROJECT_NUMBER="$(printf '%s\n' "$MATCHES" | jq -r '.project_number')"
-   ITEM_ID="$(printf '%s\n' "$MATCHES" | jq -r '.item_id')"
-   STATUS="$(printf '%s\n' "$MATCHES" | jq -r '.status')"
-   test "$STATUS" = "Ready" || { echo "Expected status Ready, found $STATUS" >&2; exit 1; }
-   ```
+5. All implementation work MUST strictly follow the instructions provided in:
+   - `Implementation Plan`
+   - `Implementation Notes`
 
-3. Continue only when exactly one matching project item is found and its `status` is exactly `Ready`. If no project item is found, more than one item is found, or the status is anything else, stop and report the observed project number, item ID, and status. Do not substitute an issue label or a user assertion for this check.
-4. After the issue is verified as `Ready`, move the project item to `In Progress` before implementation. Resolve the project, field, and option IDs from the project API rather than guessing them:
+6. At the end of the work, the agent MUST complete the `Final Summary` field as if it were a Pull Request description intended for human review.
 
-   ```bash
-   PROJECT_ID="$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.id')"
-   STATUS_FIELD="$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json --limit 100 \
-     | jq -r '.fields[] | select(.name == "Status") | .id')"
-   IN_PROGRESS_OPTION="$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json --limit 100 \
-     | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "In Progress") | .id')"
-   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" \
-     --field-id "$STATUS_FIELD" --single-select-option-id "$IN_PROGRESS_OPTION"
-   ```
+7. Once implementation is finished, the agent MUST move the task to status `In Review`.
 
-5. After the pull request is created, use the same IDs and procedure to set the item to `In Review`. If the project API is unavailable or returns an authorization error, stop before claiming the transition succeeded and report the exact failing command.
+8. The agent MUST NEVER modify tasks already in status `Done`.
 
-The commands above intentionally inspect Project items directly. `gh issue view --json labels` and the issue REST payload do not contain the Project `Status` field and are insufficient for this workflow gate.
+9. The agent MUST NEVER merge a feature branch into the main branch.
 
-## Phase 1: refine a Backlog issue
+10. If the human reviewer rejects or requests changes to the task execution:
+   - the task MUST be moved back to `In Progress`
+   - the agent MUST continue working on it according to the human review feedback
 
-An issue in `Backlog` may be selected for refinement. During this phase:
+### Task Preparation and Approval
 
-1. Read the complete issue, including its description and any existing comments.
-2. Confirm that the issue is open and has not already been implemented.
-3. Populate or update these sections in the issue, in English:
-   - `Acceptance Tests`
-   - `Definition of Done`
-   - `Execution Plan`
-   - `Changelog`
-4. Make the acceptance tests observable and testable. Do not write vague criteria such as "works correctly".
-5. Keep the `Changelog` as `TBD` until implementation changes are known, or describe the expected user-visible change if it is already clear.
-6. Report the proposed execution plan to the user.
-7. Leave the issue in `Backlog` and stop. The user approves the refinement by moving the issue to `Ready`.
+Before implementing any task in `In Progress`, the agent MUST:
 
-Do not create a branch, edit source files, run implementation commands, commit, push, or open a pull request while refining a `Backlog` issue.
+1. Read the task, dependencies, referenced documentation, relevant code, and tests.
+2. Draft task-specific `Acceptance Criteria` as measurable and verifiable outcomes.
+   - Acceptance Criteria MUST describe what must be achieved, not the implementation steps.
+   - Each criterion MUST have a clear pass/fail result.
+3. Draft the applicable `Definition of Done` items as verifiable quality and completion requirements.
+   - The Definition of Done MUST be adapted to the task type and project context.
+   - Requirements that are not applicable to the task MUST NOT be added merely as boilerplate.
+4. Draft an ordered `Implementation Plan` describing the intended approach and validation strategy.
+5. Present the proposed `Acceptance Criteria`, `Definition of Done`, and `Implementation Plan` to the human for review.
+6. Wait for explicit human approval before writing implementation code.
+7. Record the approved fields using the Backlog.md CLI.
+   - Backlog task Markdown files MUST NOT be edited directly.
+   - Use `backlog task edit <task-id> --help` before changing unfamiliar fields.
 
-## Phase 2: start implementation from Ready
+### Progress Tracking During Implementation
 
-The agent may work on an issue only when both conditions are met:
+During implementation, the agent MUST:
 
-1. The issue is in `Ready`.
-2. The user explicitly asks the agent to implement that issue.
+1. Work in focused implementation and verification loops.
+2. Keep the Backlog task as the plan of record.
+3. Update the `Implementation Plan` through the Backlog.md CLI before continuing whenever the approved approach materially changes.
+4. Record relevant progress, decisions, blockers, and validation results in `Implementation Notes`.
+5. Check each Acceptance Criterion as soon as it has been satisfied and verified, using:
+   - `backlog task edit <task-id> --check-ac <index>`
+6. Check each Definition of Done item only after its requirement has been concretely verified, using:
+   - `backlog task edit <task-id> --check-dod <index>`
+7. Never check incomplete, assumed, or unverified items.
+8. Request human approval before changing the approved scope or Acceptance Criteria.
+9. Stop and ask the human whether to extend the current task or create follow-up work if out-of-scope work is discovered.
 
-Moving an issue to `Ready` approves the refinement, but does not by itself authorize implementation. An implementation request for an issue in any other state is not valid.
+### Required Field Format
 
-After both conditions are met:
+The agent MUST use the following structure when proposing and recording the task fields. The example text is illustrative and MUST be replaced with content derived from the actual task, project, code, and tests.
 
-1. Verify the issue's Project item using [Read the workflow state from GitHub Projects](#read-the-workflow-state-from-github-projects), then move it to `In Progress`.
-2. Update local `main` without rewriting history:
+~~~markdown
+## Acceptance Criteria
 
-   ```bash
-   git switch main
-   git pull --ff-only origin main
-   ```
+- [ ] The user can complete the requested action through the intended interface.
+- [ ] Valid input produces the expected observable result.
+- [ ] Invalid input is rejected with a clear, actionable error message.
+- [ ] Existing behavior outside the approved scope remains unchanged.
 
-3. Create a dedicated feature branch from the updated `main`.
+## Definition of Done
 
-Branch format:
+- [ ] All Acceptance Criteria have been satisfied and verified.
+- [ ] Relevant automated tests have been added or updated and pass.
+- [ ] Relevant project checks, such as build, lint, type checking, or formatting, pass.
+- [ ] No known regressions have been introduced in the affected behavior.
+- [ ] Documentation and configuration have been updated where required.
+- [ ] The Implementation Plan reflects the solution actually implemented.
+- [ ] Implementation Notes record relevant decisions and validation results.
+- [ ] Final Summary explains what changed, why, and how it was verified.
 
-```text
-<type>/issue-<number>-<short-kebab-case-description>
-```
+## Implementation Plan
 
-Allowed types include `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, and `hotfix`.
+1. Inspect the existing implementation, related tests, dependencies, and project conventions.
+2. Implement the smallest focused change that satisfies the approved Acceptance Criteria.
+3. Add or update tests for the expected behavior, validation failures, and relevant edge cases.
+4. Run the applicable automated checks and resolve failures caused by the change.
+5. Verify every Acceptance Criterion, update Implementation Notes, and prepare the Final Summary.
+~~~
 
-Example:
+Field rules:
 
-```bash
-git switch -c feat/issue-12-hourly-forecast
-```
+- `Acceptance Criteria` MUST contain task-specific, externally observable outcomes. It MUST NOT contain implementation steps, file names, class names, or vague statements such as "works correctly".
+- `Definition of Done` MUST contain verifiable quality and completion checks. The agent MUST remove non-applicable example items and add project-specific checks when required.
+- `Implementation Plan` MUST be an ordered, task-specific sequence based on inspection of the current codebase. It MUST NOT merely copy the generic example above.
+- Every proposed checklist item MUST initially use an unchecked checkbox (`- [ ]`).
+- Checked checkboxes (`- [x]`) MUST appear only after the corresponding item has been completed and concretely verified.
+- The proposal shown to the human MUST reproduce all three sections in full so their scope and verification approach can be approved together.
 
-The agent must not implement work directly on `main` or on a branch shared with another issue.
+### Required Backlog Workflow
 
-An explicit implementation request may look like:
+- If your client supports MCP resources, read `backlog://workflow/overview` to understand when and how to use Backlog for this project.
+- If your client only supports tools or the above request fails, call `backlog.get_backlog_instructions()` to load the tool-oriented overview. Use the `instruction` selector when you need `task-creation`, `task-execution`, or `task-finalization`.
 
-```text
-Implement the plan for issue #12.
-```
+- **First time working here?** Read the overview resource IMMEDIATELY to learn the workflow.
+- **Already familiar?** You should have the overview cached (`## Backlog.md Overview (MCP)`).
+- **When to read it**: BEFORE creating tasks, or whenever you are unsure whether work should be tracked.
 
-## Phase 3: implement and submit for review
+These guides cover:
+- Decision framework for when to create tasks
+- Search-first workflow to avoid duplicates
+- Detailed guides for task creation, execution, and finalization
+- MCP tools reference
 
-During implementation:
+You MUST read the overview resource to understand the complete workflow. The information is NOT summarized here.
 
-1. Implement only the approved execution plan.
-2. Add or update tests for the acceptance tests.
-3. Update documentation when the behavior or public interface changes.
-4. Run the repository verification commands. For Rust, use:
+</CRITICAL_INSTRUCTION>
 
-   ```bash
-   cargo fmt --all -- --check
-   cargo test --all
-   cargo clippy --all-targets --all-features -- -D warnings
-   ```
-
-5. Verify every acceptance test and Definition of Done item against observable evidence. Update the issue body and replace `- [ ]` with `- [x]` only for criteria that are actually verified; leave any unverified criterion unchecked and report it. Do not check a parent section merely because its implementation was attempted.
-6. Replace the `Changelog` placeholder in the issue with a concise user-visible summary.
-7. Commit using Conventional Commits. Include the issue number when practical:
-
-   ```text
-   feat: add hourly forecast (#12)
-   ```
-
-8. Push the feature branch and open a pull request whose body contains only the changelog. Include `Closes #<issue-number>` in that changelog when the issue should be closed. Never merge it:
-
-    ```bash
-    git push --set-upstream origin <branch-name>
-    gh pr create --base main --head <branch-name> \
-      --title "feat: add hourly forecast" \
-      --body-file <generated-pr-body-file>
-    ```
-
-9. Move the issue's Project item to `In Review` after the pull request has been created, using the project-item procedure above. Confirm the resulting status by fetching the item again before reporting completion.
-
-The user is responsible for reviewing and merging the pull request. The agent must never merge the pull request or close the issue manually.
-
-## Pull request requirements
-
-The pull request body must contain only the `Changelog` section from `.github/pull_request_template.md`. It must provide a concise user-visible summary and include `Closes #<issue-number>` when applicable. Acceptance tests, Definition of Done results, execution details, and verification commands belong in the issue or the agent's completion report, not in the pull request body.
-
-If a verification command fails, do not create the pull request until the failure is fixed or explicitly reported to the user.
-
-## GitHub and permissions
-
-- Use `gh issue view <number>` and `gh issue edit <number>` when GitHub CLI access is available.
-- Use `gh pr create` to open the pull request only after implementation is complete.
-- If authentication, network access, or push permission is unavailable, stop before the external operation and report the exact command that requires user action.
-- Never bypass branch protection or merge a pull request.
+<!-- BACKLOG.MD MCP GUIDELINES END -->
