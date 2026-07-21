@@ -1,10 +1,10 @@
 ---
 id: TASK-1
 title: Setup rust ambient
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-21 22:38'
-updated_date: '2026-07-21 22:51'
+updated_date: '2026-07-21 22:52'
 labels: []
 dependencies: []
 ordinal: 1000
