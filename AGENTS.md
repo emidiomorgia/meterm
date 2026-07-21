@@ -8,7 +8,7 @@ This repository uses an issue-driven, spec-first workflow. Every implementation 
 - Do not modify `main` directly.
 - Do not create a branch or write implementation code while refining a `Backlog` issue or before the issue is explicitly approved by moving it to `Ready`.
 - Do not merge pull requests.
-- Do not close issues manually unless explicitly requested; use `Closes #<issue-number>` in the pull request body.
+- Do not close issues manually unless explicitly requested; include `Closes #<issue-number>` in the changelog section of the pull request body.
 - Keep the implementation limited to the scope described in the issue.
 
 ## Read the workflow state from GitHub Projects
@@ -146,7 +146,7 @@ During implementation:
    feat: add hourly forecast (#12)
    ```
 
-8. Push the feature branch and open a pull request. Never merge it:
+8. Push the feature branch and open a pull request whose body contains only the changelog. Include `Closes #<issue-number>` in that changelog when the issue should be closed. Never merge it:
 
     ```bash
     git push --set-upstream origin <branch-name>
@@ -161,15 +161,7 @@ The user is responsible for reviewing and merging the pull request. The agent mu
 
 ## Pull request requirements
 
-The pull request must include:
-
-- a concise summary;
-- the issue reference, using `Closes #<issue-number>`;
-- the execution plan actually followed;
-- tests and verification commands executed;
-- the acceptance tests and their results;
-- the Definition of Done and its results;
-- the changelog entry.
+The pull request body must contain only the `Changelog` section from `.github/pull_request_template.md`. It must provide a concise user-visible summary and include `Closes #<issue-number>` when applicable. Acceptance tests, Definition of Done results, execution details, and verification commands belong in the issue or the agent's completion report, not in the pull request body.
 
 If a verification command fails, do not create the pull request until the failure is fixed or explicitly reported to the user.
 
