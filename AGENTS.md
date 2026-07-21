@@ -19,7 +19,11 @@ This project uses Backlog.md MCP for all task and project management activities.
      - partially completed work
      - tasks returned after human review with requested modifications
 
-3. Tasks worked on by the agent MUST always use a dedicated feature branch named after the task identifier or task name.
+3. Before starting implementation of an `In Progress` task, the agent MUST create and switch to a dedicated branch for that task.
+   - The branch name MUST follow one of these formats: `feat/task-n`, `hotfix/task-n`, `bugfix/task-n`, or `chore/task-n`.
+   - Replace `task-n` with the task identifier, preserving the numeric task number (for example, `feat/task-123`).
+   - Choose `feat` for new functionality, `hotfix` for urgent production fixes, `bugfix` for non-urgent defect fixes, and `chore` for maintenance or documentation work.
+   - The agent MUST NOT implement the task directly on `main` or another shared base branch.
 
 4. The agent MUST mark work as completed ONLY when:
    - all Acceptance Criteria are fully satisfied
