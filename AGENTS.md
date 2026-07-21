@@ -11,6 +11,57 @@ This repository uses an issue-driven, spec-first workflow. Every implementation 
 - Do not close issues manually unless explicitly requested; use `Closes #<issue-number>` in the pull request body.
 - Keep the implementation limited to the scope described in the issue.
 
+## Read the workflow state from GitHub Projects
+
+The workflow state is the `Status` field on the issue's GitHub Project item. Do not infer it from the issue's open/closed state, labels, comments, or the issue body. In particular, `Ready` is the valid value; misspellings such as `Redy` are not valid states.
+
+Before creating a branch or editing files for an issue:
+
+1. Resolve the repository owner and name from the `origin` remote, then fetch the complete issue with `gh issue view <number> --json number,state,title,body,comments,url`.
+2. Discover the projects owned by the repository owner and inspect their items. The following commands are the reference procedure; `jq` is required:
+
+   ```bash
+   OWNER="$(git remote get-url origin | sed -E 's#(git@|https://)github.com[:/]([^/]+)/.*#\2#')"
+   REPOSITORY="${OWNER}/$(git remote get-url origin | sed -E 's#(\.git|/)$##; s#.*/##')"
+   ISSUE_NUMBER=12
+
+   MATCHES="$(
+     for PROJECT_NUMBER in $(gh project list --owner "$OWNER" --format json --limit 100 \
+       | jq -r '.projects[].number'); do
+       gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" \
+         --format json --limit 1000 \
+         | jq -c --arg repository "$REPOSITORY" --argjson issue "$ISSUE_NUMBER" \
+           --arg project "$PROJECT_NUMBER" \
+           '.items[]
+            | select(.content.repository == $repository and .content.number == $issue)
+            | {project_number: ($project | tonumber), item_id: .id, status: .status}'
+     done
+   )"
+   MATCH_COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d ' ')"
+   test "$MATCH_COUNT" -eq 1 || { echo "Expected exactly one matching project item, found $MATCH_COUNT" >&2; exit 1; }
+   PROJECT_NUMBER="$(printf '%s\n' "$MATCHES" | jq -r '.project_number')"
+   ITEM_ID="$(printf '%s\n' "$MATCHES" | jq -r '.item_id')"
+   STATUS="$(printf '%s\n' "$MATCHES" | jq -r '.status')"
+   test "$STATUS" = "Ready" || { echo "Expected status Ready, found $STATUS" >&2; exit 1; }
+   ```
+
+3. Continue only when exactly one matching project item is found and its `status` is exactly `Ready`. If no project item is found, more than one item is found, or the status is anything else, stop and report the observed project number, item ID, and status. Do not substitute an issue label or a user assertion for this check.
+4. After the issue is verified as `Ready`, move the project item to `In Progress` before implementation. Resolve the project, field, and option IDs from the project API rather than guessing them:
+
+   ```bash
+   PROJECT_ID="$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.id')"
+   STATUS_FIELD="$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json --limit 100 \
+     | jq -r '.fields[] | select(.name == "Status") | .id')"
+   IN_PROGRESS_OPTION="$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json --limit 100 \
+     | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "In Progress") | .id')"
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" \
+     --field-id "$STATUS_FIELD" --single-select-option-id "$IN_PROGRESS_OPTION"
+   ```
+
+5. After the pull request is created, use the same IDs and procedure to set the item to `In Review`. If the project API is unavailable or returns an authorization error, stop before claiming the transition succeeded and report the exact failing command.
+
+The commands above intentionally inspect Project items directly. `gh issue view --json labels` and the issue REST payload do not contain the Project `Status` field and are insufficient for this workflow gate.
+
 ## Phase 1: refine a Backlog issue
 
 An issue in `Backlog` may be selected for refinement. During this phase:
@@ -40,7 +91,7 @@ Moving an issue to `Ready` approves the refinement, but does not by itself autho
 
 After both conditions are met:
 
-1. Move the issue to `In Progress`.
+1. Verify the issue's Project item using [Read the workflow state from GitHub Projects](#read-the-workflow-state-from-github-projects), then move it to `In Progress`.
 2. Update local `main` without rewriting history:
 
    ```bash
@@ -87,7 +138,7 @@ During implementation:
    cargo clippy --all-targets --all-features -- -D warnings
    ```
 
-5. Verify every acceptance test and Definition of Done item.
+5. Verify every acceptance test and Definition of Done item against observable evidence. Update the issue body and replace `- [ ]` with `- [x]` only for criteria that are actually verified; leave any unverified criterion unchecked and report it. Do not check a parent section merely because its implementation was attempted.
 6. Replace the `Changelog` placeholder in the issue with a concise user-visible summary.
 7. Commit using Conventional Commits. Include the issue number when practical:
 
@@ -104,7 +155,7 @@ During implementation:
       --body-file <generated-pr-body-file>
     ```
 
-9. Move the issue to `In Review` after the pull request has been created.
+9. Move the issue's Project item to `In Review` after the pull request has been created, using the project-item procedure above. Confirm the resulting status by fetching the item again before reporting completion.
 
 The user is responsible for reviewing and merging the pull request. The agent must never merge the pull request or close the issue manually.
 
