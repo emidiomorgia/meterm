@@ -24,7 +24,7 @@ jobs:
             target: x86_64-apple-darwin
             os: macos
             arch: x86_64
-          - runner: macos-14
+          - runner: macos-15
             target: aarch64-apple-darwin
             os: macos
             arch: arm64
@@ -45,14 +45,34 @@ jobs:
       - name: Build release binary
         run: cargo build --locked --release --target ${{ matrix.target }}
 
-      - name: Stage binary (Unix)
-        if: runner.os != 'Windows'
+      - name: Package Linux binary
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/meterm" "dist/meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}"
+          archive="meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
+          cp "target/${{ matrix.target }}/release/meterm" dist/meterm
+          chmod 755 dist/meterm
+          tar -czf "dist/${archive}" -C dist meterm
+          rm dist/meterm
 
-      - name: Stage binary (Windows)
+      - name: Package macOS binary
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p pkgroot/usr/local/bin dist
+          package="meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.pkg"
+          cp "target/${{ matrix.target }}/release/meterm" pkgroot/usr/local/bin/meterm
+          chmod 755 pkgroot/usr/local/bin/meterm
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          pkgbuild \
+            --root pkgroot \
+            --identifier com.emidiomorgia.meterm \
+            --version "${version}" \
+            --install-location / \
+            "dist/${package}"
+
+      - name: Package Windows binary
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -84,5 +104,8 @@ jobs:
       - name: Publish binaries to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*.tar.gz
+            dist/*.pkg
+            dist/*.exe
           fail_on_unmatched_files: true
