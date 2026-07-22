@@ -20,7 +20,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             os: linux
             arch: x86_64
-          - runner: macos-13
+          - runner: macos-15-intel
             target: x86_64-apple-darwin
             os: macos
             arch: x86_64
@@ -65,3 +65,24 @@ jobs:
           name: meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/
           if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release assets
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download target artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: meterm-${{ github.ref_name }}-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
