@@ -1,10 +1,10 @@
 ---
 id: TASK-2
 title: Create CICD Pipeline ad GitHub Action
-status: In Progress
+status: Ready
 assignee: []
 created_date: '2026-07-22 20:33'
-updated_date: '2026-07-22 21:57'
+updated_date: '2026-07-22 22:30'
 labels: []
 milestone: m-0
 dependencies: []
@@ -30,11 +30,12 @@ As a developer, I want the system builds binary artifacts compiling in rust when
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Inspect the existing tag-triggered matrix workflow and the reviewer comment about missing macOS Intel binaries and GitHub Release assets.
-2. Update the target matrix to use currently supported GitHub-hosted runner labels while preserving the four required Rust target triples.
-3. Keep one uniquely named Actions artifact per target, then add a single release-publishing job that gathers those artifacts and uploads the executables to the GitHub Release for the pushed tag.
-4. Validate workflow syntax and run the applicable local Rust checks.
-5. Record the correction and validation results, verify the acceptance criteria and Definition of Done items, and move TASK-2 to In Review only after all required checks pass.
+1. Inspect the existing Cargo project, README platform expectations, repository layout, and available GitHub Actions configuration.
+2. Define the supported target matrix for Linux x86_64, macOS x86_64, macOS Apple Silicon, and Windows x86_64, using Rust target triples compatible with GitHub-hosted runners.
+3. Add a tag-triggered GitHub Actions workflow that installs the stable Rust toolchain, builds the release binary for each target, and stages the target-specific executable.
+4. Upload one artifact per target with names that include the project name, pushed tag or version, operating system, and architecture.
+5. Validate workflow syntax and configuration, then run cargo fmt --check, cargo build, and cargo test locally.
+6. Record implementation decisions and CI validation results in Implementation Notes, check each satisfied Acceptance Criterion and Definition of Done item, complete the Final Summary, and move the task to In Review.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -45,10 +46,6 @@ Implemented .github/workflows/release-binaries.yml. The workflow triggers on eve
 Validation: YAML parsed successfully with Ruby Psych; git diff --check passed; cargo fmt --check passed; cargo build --locked passed; cargo test --locked passed (0 tests); cargo build --locked --release --target aarch64-apple-darwin passed locally. The other three target builds and artifact downloads require a pushed branch/tag and a successful GitHub Actions run, which has not occurred in this local workspace.
 
 Follow-up verification attempt: the required GitHub Actions run is still unavailable because feat/task-2 has not been pushed and no tag-triggered workflow run exists. Acceptance Criteria #3/#4 and Definition of Done #1/#4 remain intentionally unchecked until the branch is published and a tag run successfully builds all four targets and exposes the four downloadable artifacts.
-
-Applied comment #2 correction: replaced the retired macos-13 runner with macos-15-intel for x86_64-apple-darwin. Added a publish-release job that waits for all matrix builds, downloads the four uniquely named Actions artifacts with actions/download-artifact@v4, and publishes their executable files to the tag GitHub Release using softprops/action-gh-release@v2 with contents:write permission. This preserves the Actions artifact page entries and adds Release page assets.
-
-Correction validation: YAML parsed successfully with Ruby Psych; cargo fmt --check passed; cargo build --locked passed; cargo test --locked passed (0 tests); cargo build --locked --release --target aarch64-apple-darwin passed; git diff --check passed. A GitHub Actions run is still required to verify the Intel runner and downloadable Release assets remotely.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -70,12 +67,17 @@ created: 2026-07-22 21:57
 ---
 Comment #2 addressed: macOS Intel now uses macos-15-intel, and release assets are published by a single post-build job to avoid matrix upload races.
 ---
+
+created: 2026-07-22 22:30
+---
+For Linux, I want it to be distributed as a tar.gz file that contains the executable file already set with the executable flag; for Mac, it must be a .pkg file that, when opened, must ask for authorization for security reasons as it is not signed, but the installed executable file must have the executable flag; on Windows, it will be an .exe file with the option to be opened anyway, even if it comes from the Internet.
+---
 <!-- COMMENTS:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Corrected TASK-2 after review comment #2. The macOS Intel build now runs on the supported macos-15-intel runner, and a dedicated publish-release job gathers all four target artifacts and uploads their executables to the GitHub Release for the pushed tag. Local YAML and Rust checks pass; remote GitHub Actions verification remains pending.
+Added a tag-triggered GitHub Actions matrix workflow that builds and stages meterm release executables for Linux x86_64, macOS Intel, macOS Apple Silicon, and Windows x86_64, then uploads one uniquely named artifact per target. Workflow YAML and local Rust checks pass. Cross-platform GitHub-run verification remains pending a pushed tag-triggered Actions run.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
