@@ -1,15 +1,15 @@
 ---
 id: TASK-2
 title: Create CICD Pipeline ad GitHub Action
-status: Done
+status: Ready
 assignee: []
 created_date: '2026-07-22 20:33'
-updated_date: '2026-07-22 21:06'
+updated_date: '2026-07-22 21:55'
 labels: []
 milestone: m-0
 dependencies: []
 priority: high
-ordinal: 2000
+ordinal: 1000
 ---
 
 ## Description
@@ -55,6 +55,11 @@ author: @codex
 created: 2026-07-22 21:05
 ---
 Implementation is ready, but final completion is blocked by the required remote GitHub Actions verification. Please push feat/task-2 and trigger a tag run; then verify all four target builds and downloadable artifacts before moving TASK-2 to In Review.
+---
+
+created: 2026-07-22 21:54
+---
+GitHub action did not create the macos x86 binaries anc did not produce artifacts in release page. fix that
 ---
 <!-- COMMENTS:END -->
 
