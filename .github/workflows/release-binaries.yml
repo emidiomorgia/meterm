@@ -1,0 +1,67 @@
+name: Release binaries
+
+on:
+  push:
+    tags:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            os: linux
+            arch: x86_64
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            os: macos
+            arch: x86_64
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            os: macos
+            arch: arm64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            os: windows
+            arch: x86_64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --locked --release --target ${{ matrix.target }}
+
+      - name: Stage binary (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/meterm" "dist/meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}"
+
+      - name: Stage binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/meterm.exe" "dist/meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.exe"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meterm-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: error

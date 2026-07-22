@@ -41,7 +41,7 @@ This project uses Backlog.md MCP for all task and project management activities.
 
 6. At the end of the work, the agent MUST complete the `Final Summary` field as if it were a Pull Request description intended for human review.
 
-7. Once implementation is finished, and only after every Acceptance Criterion and Definition of Done item has been concretely verified and checked, the agent MUST move the task to status `In Review`.
+7. Final task handoff is mandatory: once implementation is finished, and only after every Acceptance Criterion and Definition of Done item has been concretely verified and checked through the Backlog.md CLI, the agent MUST move the task to status `In Review` before ending the work session. The agent MUST NOT report the task as completed while leaving it in `In Progress`. If a required verification depends on an external action (such as a remote CI run), the agent MUST explicitly report that blocker and request the necessary action or approval instead of silently ending the task as completed.
 
 8. The agent MUST NEVER modify tasks already in status `Done`.
 
@@ -83,7 +83,7 @@ During implementation, the agent MUST:
 7. Never check incomplete, assumed, or unverified items.
 8. Request human approval before changing the approved scope or Acceptance Criteria.
 9. Stop and ask the human whether to extend the current task or create follow-up work if out-of-scope work is discovered.
-10. After all Acceptance Criteria and Definition of Done items pass verification, check every corresponding item through the Backlog.md CLI and only then move the task to `In Review`.
+10. After all Acceptance Criteria and Definition of Done items pass verification, check every corresponding item through the Backlog.md CLI, confirm that no unchecked required item remains, and only then move the task to `In Review`. The final response MUST state the resulting Backlog status.
 
 ### Required Field Format
 
