@@ -8,18 +8,24 @@ This project uses Backlog.md MCP for all task and project management activities.
 
 ### Mandatory Workflow Rules
 
-1. Tasks in status `To Do` are created and maintained by humans only.
-   - The agent MUST NEVER start working on tasks in `To Do` status.
-   - `To Do` tasks are considered not yet approved for implementation.
+1. Tasks in status `To Do` have their title and description created and maintained by humans only.
+   - The human writes the task title and description.
+   - The agent MUST NOT modify the title or description during Preparation.
+   - The agent MUST NEVER start implementation work on tasks in `To Do` status.
+   - `To Do` tasks are considered not yet prepared or approved for implementation.
 
-2. The agent MUST only work on tasks in status `In Progress`.
-   - A task in `In Progress` means the human has explicitly approved it for implementation.
+2. The agent MUST only work on tasks in status `Ready` or `In Progress`.
+   - Implementation work MUST only be performed on tasks in `In Progress`.
+   - A task in `To Do` may be touched only for the explicitly requested Preparation activity described below; no implementation work is allowed in that status.
+   - A task in `Ready` means the human has approved the agent-generated Preparation fields and requested implementation.
+   - Before implementation, the agent MUST move the approved task from `Ready` to `In Progress`.
+   - A task in `In Progress` means the human has explicitly approved it for implementation and the agent has started the implementation workflow.
    - Tasks in `In Progress` may represent:
      - newly approved work
      - partially completed work
      - tasks returned after human review with requested modifications
 
-3. Before starting implementation of an `In Progress` task, the agent MUST create and switch to a dedicated branch for that task.
+3. Before starting implementation of an approved `Ready` task, the agent MUST create and switch to a dedicated branch for that task, then move the task to `In Progress`.
    - The branch name MUST follow one of these formats: `feat/task-n`, `hotfix/task-n`, `bugfix/task-n`, or `chore/task-n`.
    - Replace `task-n` with the task identifier, preserving the numeric task number (for example, `feat/task-123`).
    - Choose `feat` for new functionality, `hotfix` for urgent production fixes, `bugfix` for non-urgent defect fixes, and `chore` for maintenance or documentation work.
@@ -35,7 +41,7 @@ This project uses Backlog.md MCP for all task and project management activities.
 
 6. At the end of the work, the agent MUST complete the `Final Summary` field as if it were a Pull Request description intended for human review.
 
-7. Once implementation is finished, the agent MUST move the task to status `In Review`.
+7. Once implementation is finished, and only after every Acceptance Criterion and Definition of Done item has been concretely verified and checked, the agent MUST move the task to status `In Review`.
 
 8. The agent MUST NEVER modify tasks already in status `Done`.
 
@@ -47,19 +53,18 @@ This project uses Backlog.md MCP for all task and project management activities.
 
 ### Task Preparation and Approval
 
-Before implementing any task in `In Progress`, the agent MUST:
+When the human asks the agent to prepare a task, the agent MUST:
 
-1. Read the task, dependencies, referenced documentation, relevant code, and tests.
-2. Draft task-specific `Acceptance Criteria` as measurable and verifiable outcomes.
+1. Read the task title and description, dependencies, referenced documentation, relevant code, and tests.
+2. Automatically write task-specific `Acceptance Criteria` into the task Markdown as measurable and verifiable outcomes.
    - Acceptance Criteria MUST describe what must be achieved, not the implementation steps.
    - Each criterion MUST have a clear pass/fail result.
-3. Draft the applicable `Definition of Done` items as verifiable quality and completion requirements.
+3. Automatically write the applicable `Definition of Done` items into the task Markdown as verifiable quality and completion requirements.
    - The Definition of Done MUST be adapted to the task type and project context.
    - Requirements that are not applicable to the task MUST NOT be added merely as boilerplate.
-4. Draft an ordered `Implementation Plan` describing the intended approach and validation strategy.
-5. Present the proposed `Acceptance Criteria`, `Definition of Done`, and `Implementation Plan` to the human for review.
-6. Wait for explicit human approval before writing implementation code.
-7. Record the approved fields using the Backlog.md CLI.
+4. Automatically write an ordered `Implementation Plan` into the task Markdown, describing the intended approach and validation strategy.
+5. Use the Backlog.md CLI to modify the task Markdown with these three fields; direct editing of task Markdown files is forbidden.
+6. Leave the task awaiting human review. The human approves the Preparation by moving the task to `Ready` and then asks the agent to implement it.
    - Backlog task Markdown files MUST NOT be edited directly.
    - Use `backlog task edit <task-id> --help` before changing unfamiliar fields.
 
@@ -78,6 +83,7 @@ During implementation, the agent MUST:
 7. Never check incomplete, assumed, or unverified items.
 8. Request human approval before changing the approved scope or Acceptance Criteria.
 9. Stop and ask the human whether to extend the current task or create follow-up work if out-of-scope work is discovered.
+10. After all Acceptance Criteria and Definition of Done items pass verification, check every corresponding item through the Backlog.md CLI and only then move the task to `In Review`.
 
 ### Required Field Format
 
@@ -118,7 +124,7 @@ Field rules:
 - `Implementation Plan` MUST be an ordered, task-specific sequence based on inspection of the current codebase. It MUST NOT merely copy the generic example above.
 - Every proposed checklist item MUST initially use an unchecked checkbox (`- [ ]`).
 - Checked checkboxes (`- [x]`) MUST appear only after the corresponding item has been completed and concretely verified.
-- The proposal shown to the human MUST reproduce all three sections in full so their scope and verification approach can be approved together.
+- The task Markdown written during Preparation MUST contain all three sections in full so their scope and verification approach can be approved together.
 
 ### Required Backlog Workflow
 
