@@ -4,7 +4,7 @@ title: Create CICD Pipeline ad GitHub Action
 status: In Progress
 assignee: []
 created_date: '2026-07-22 20:33'
-updated_date: '2026-07-22 21:57'
+updated_date: '2026-07-22 22:32'
 labels: []
 milestone: m-0
 dependencies: []
@@ -30,11 +30,12 @@ As a developer, I want the system builds binary artifacts compiling in rust when
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Inspect the existing tag-triggered matrix workflow and the reviewer comment about missing macOS Intel binaries and GitHub Release assets.
-2. Update the target matrix to use currently supported GitHub-hosted runner labels while preserving the four required Rust target triples.
-3. Keep one uniquely named Actions artifact per target, then add a single release-publishing job that gathers those artifacts and uploads the executables to the GitHub Release for the pushed tag.
-4. Validate workflow syntax and run the applicable local Rust checks.
-5. Record the correction and validation results, verify the acceptance criteria and Definition of Done items, and move TASK-2 to In Review only after all required checks pass.
+1. Inspect the existing cross-platform release workflow and reviewer comment #4 specifying distribution formats and installer behavior.
+2. Keep the four required Rust target builds and use supported GitHub-hosted runner labels for Intel and Apple Silicon macOS.
+3. Package the Linux executable as an executable-bit-preserving tar.gz, package each macOS executable as an unsigned .pkg that installs under /usr/local/bin, and retain the unsigned Windows .exe.
+4. Upload one target artifact per matrix job and publish all packaged files to the GitHub Release in a single dependent job.
+5. Validate workflow syntax and run the applicable local Rust checks.
+6. Record the packaging correction and validation results, verify the acceptance criteria and Definition of Done items, and move TASK-2 to In Review only after all required checks pass.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -49,6 +50,10 @@ Follow-up verification attempt: the required GitHub Actions run is still unavail
 Applied comment #2 correction: replaced the retired macos-13 runner with macos-15-intel for x86_64-apple-darwin. Added a publish-release job that waits for all matrix builds, downloads the four uniquely named Actions artifacts with actions/download-artifact@v4, and publishes their executable files to the tag GitHub Release using softprops/action-gh-release@v2 with contents:write permission. This preserves the Actions artifact page entries and adds Release page assets.
 
 Correction validation: YAML parsed successfully with Ruby Psych; cargo fmt --check passed; cargo build --locked passed; cargo test --locked passed (0 tests); cargo build --locked --release --target aarch64-apple-darwin passed; git diff --check passed. A GitHub Actions run is still required to verify the Intel runner and downloadable Release assets remotely.
+
+Applied comment #4 correction: Linux now produces meterm-<tag>-linux-x86_64.tar.gz containing the executable named meterm with mode 0755. Both macOS targets now produce unsigned meterm-<tag>-macos-<arch>.pkg installers using pkgbuild; the package installs /usr/local/bin/meterm with mode 0755 and therefore requests administrator authorization during installation. Windows continues to publish the unsigned meterm-<tag>-windows-x86_64.exe; Windows security warnings remain the expected behavior for an unsigned Internet-downloaded executable.
+
+Packaging validation: YAML parsed successfully with Ruby Psych; cargo fmt --check, cargo build --locked, cargo test --locked, and the Apple Silicon release build passed. On macOS, pkgbuild successfully created a test unsigned package and tar successfully preserved the executable mode and /usr/local/bin/meterm payload path. Remote GitHub Actions verification is still required.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -70,12 +75,18 @@ created: 2026-07-22 21:57
 ---
 Comment #2 addressed: macOS Intel now uses macos-15-intel, and release assets are published by a single post-build job to avoid matrix upload races.
 ---
+
+author: @codex
+created: 2026-07-22 22:32
+---
+Comment #4 addressed: Linux tar.gz, unsigned macOS .pkg installers with executable /usr/local/bin/meterm, and unsigned Windows .exe packaging are now defined in the workflow.
+---
 <!-- COMMENTS:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Corrected TASK-2 after review comment #2. The macOS Intel build now runs on the supported macos-15-intel runner, and a dedicated publish-release job gathers all four target artifacts and uploads their executables to the GitHub Release for the pushed tag. Local YAML and Rust checks pass; remote GitHub Actions verification remains pending.
+Corrected TASK-2 for reviewer comment #4. The release workflow now packages Linux as an executable-bit-preserving tar.gz, both macOS architectures as unsigned .pkg installers targeting /usr/local/bin/meterm, and Windows as an unsigned .exe. Actions artifacts remain per-target, and the dependent release job publishes the packaged files to the GitHub Release. Local workflow, Rust, tar, and pkgbuild checks pass; remote CI verification remains pending.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
